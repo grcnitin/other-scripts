@@ -1,0 +1,107 @@
+#!/bin/bash
+
+rm -f temp.txt
+touch temp.txt
+
+# ------------------------------
+# Function: check and set DNS
+# ------------------------------
+udef_setdns() {
+    ping -c 1 google.com &>/dev/null
+    if [ $? -eq 0 ]; then
+        echo "nameserver properly configured"
+    else
+        echo "nameserver not configured, using 8.8.8.8 temporarily"
+        echo "nameserver 8.8.8.8" >> /etc/resolv.conf
+        ping -c 1 google.com &>/dev/null
+        if [ $? -ne 0 ]; then
+            echo "Can't configure nameserver" >> temp.txt
+        fi
+    fi
+}
+udef_setdns
+
+# ------------------------------
+# Configure pacman to use local repo only
+# ------------------------------
+sed -i "s/^SigLevel.*/SigLevel = Never/" /etc/pacman.conf
+sed -i "s/^LocalFileSigLevel.*/LocalFileSigLevel = Optional/" /etc/pacman.conf
+
+cat <<EOF >> /etc/pacman.conf
+[localrepo]
+Server = http://192.168.15.96:8080/pkgs
+EOF
+
+# ------------------------------
+# Install packages from local repo
+# ------------------------------
+# Pacman local repo must be updated first
+pacman -Sy --noconfirm
+
+# Core packages
+pacman -S --noconfirm wget gcc-fortran ttf-dejavu
+
+# Offline AUR/helper packages
+pacman -U --noconfirm /root/pkgs/apacman-3.0-1-any.pkg.tar.xz
+pacman -U --noconfirm /root/pkgs/python2-2.7.18-8-x86_64.pkg.tar.zst
+pacman -U --noconfirm /root/pkgs/python2-gobject2-2.28.7-7-x86_64.pkg.tar.zst
+pacman -U --noconfirm /root/pkgs/python2-linux-procfs-0.5.1-4-any.pkg.tar.xz
+pacman -U --noconfirm /root/pkgs/mprime-30.19.20-1-x86_64.pkg.tar.zst
+
+# Additional system packages from local repo
+apacman -S --noconfirm tuned tcpdump dmidecode lshw gperftools \
+gentoo-bashrc sfnettest openbsd-netcat lm_sensors
+
+# ------------------------------
+# Enable tuned service
+# ------------------------------
+systemctl enable tuned.service
+tuned-adm profile network-latency
+
+# ------------------------------
+# Set up skeleton bashrc for users
+# ------------------------------
+udef_setskel() {
+    FILE=/etc/skel/.bashrc
+    cat <<EOF > "${FILE}"
+#
+# ~/.bashrc
+#
+[[ \$- != *i* ]] && return
+
+alias ls='ls --color=auto'
+PS1='[\u@\h \W]\$ '
+source /usr/share/gentoo-bashrc/bashrc
+export PATH=/home/trading/util/:/home/trading/scripts/:\$PATH
+export EDITOR=vim
+alias vi='vim'
+EOF
+}
+udef_setskel
+
+# Apply same for root
+cat <<EOF > /root/.bashrc
+#
+# ~/.bashrc
+#
+[[ \$- != *i* ]] && return
+
+alias ls='ls --color=auto'
+PS1='[\u@\h \W]\$ '
+source /usr/share/gentoo-bashrc/bashrc
+export PATH=/home/trading/util/:/home/trading/scripts/:\$PATH
+export EDITOR=vim
+alias vi='vim'
+EOF
+
+cat <<EOF > /root/.bash_profile
+#
+# ~/.bash_profile
+#
+[[ -f ~/.bashrc ]] && . ~/.bashrc
+EOF
+
+# ------------------------------
+# Verify any errors
+# ------------------------------
+cat temp.txt
