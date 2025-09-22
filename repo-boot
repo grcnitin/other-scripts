@@ -21,7 +21,7 @@ LocalFileSigLevel = Optional
 HoldPkg     = pacman glibc
 
 [localrepo]
-Server = http://192.168.15.96:8080/pkgs
+Server = http://192.168.15.96:8080/
 EOF
 
 ip a
@@ -84,7 +84,7 @@ LocalFileSigLevel = Optional
 HoldPkg     = pacman glibc
 
 [localrepo]
-Server = http://192.168.15.96:8080/pkgs
+Server = http://192.168.15.96:8080/
 EOF
 
 # ------------------------------
